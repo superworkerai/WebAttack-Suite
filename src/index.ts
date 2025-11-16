@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 
+import { config as dotenvConfig } from 'dotenv';
 import { Command } from 'commander';
 import { TestRunner } from './test-runner.js';
 import { ReportGenerator } from './report-generator.js';
 import { TestConfig } from './types.js';
+
+// Load environment variables from .env file
+dotenvConfig();
 
 // Import all test modules
 import { XSSTests } from './tests/xss-tests.js';
@@ -26,11 +30,11 @@ program
 program
   .command('scan')
   .description('Run security scan on a target URL')
-  .argument('<url>', 'Target URL to scan')
-  .option('-o, --output <dir>', 'Output directory for reports', './reports')
-  .option('--headless', 'Run browser in headless mode', true)
+  .argument('[url]', 'Target URL to scan (or use TARGET_URL env var)')
+  .option('-o, --output <dir>', 'Output directory for reports')
+  .option('--headless', 'Run browser in headless mode')
   .option('--no-headless', 'Run browser in visible mode')
-  .option('-t, --timeout <ms>', 'Timeout for each test in milliseconds', '30000')
+  .option('-t, --timeout <ms>', 'Timeout for each test in milliseconds')
   .option('--cookie <name=value>', 'Authentication cookie (can be used multiple times)', (value, previous) => {
     const cookies = previous || [];
     const [name, ...valueParts] = value.split('=');
@@ -39,14 +43,14 @@ program
     }
     return cookies;
   }, [])
-  .option('--cookie-domain <domain>', 'Cookie domain (optional, defaults to target domain)')
-  .option('--crawl-depth <depth>', 'How deep to crawl for inputs (0 = no crawling, default: 3)', '3')
-  .option('--max-pages <pages>', 'Maximum pages to crawl (default: 50)', '50')
+  .option('--cookie-domain <domain>', 'Cookie domain (optional)')
+  .option('--crawl-depth <depth>', 'How deep to crawl for inputs (0 = no crawling)')
+  .option('--max-pages <pages>', 'Maximum pages to crawl')
   .option('--include <tests>', 'Comma-separated list of tests to include')
   .option('--exclude <tests>', 'Comma-separated list of tests to exclude')
   .option('--json-only', 'Generate only JSON report (skip HTML)')
   .option('--html-only', 'Generate only HTML report (skip JSON)')
-  .action(async (url: string, options) => {
+  .action(async (url: string | undefined, options) => {
     console.log('\n╔═══════════════════════════════════════════════════════════╗');
     console.log('║                                                           ║');
     console.log('║         🔒 WebAttack Security Testing Suite 🔒            ║');
@@ -54,33 +58,87 @@ program
     console.log('╚═══════════════════════════════════════════════════════════╝\n');
     console.log('⚠️  WARNING: Only use on applications you have permission to test!\n');
 
+    // Get target URL from CLI argument or environment variable
+    const targetUrl = url || process.env.TARGET_URL;
+    if (!targetUrl) {
+      console.error('❌ No target URL provided. Use CLI argument or set TARGET_URL in .env file');
+      process.exit(1);
+    }
+
     // Validate URL
     try {
-      new URL(url);
+      new URL(targetUrl);
     } catch (error) {
       console.error('❌ Invalid URL provided');
       process.exit(1);
     }
 
-    // Build config
+    // Parse environment variables with defaults
+    const envCookies = process.env.COOKIES;
+    const envTimeout = process.env.TIMEOUT;
+    const envHeadless = process.env.HEADLESS;
+    const envOutputDir = process.env.OUTPUT_DIR;
+    const envCrawlDepth = process.env.CRAWL_DEPTH;
+    const envMaxPages = process.env.MAX_PAGES;
+    const envIncludeTests = process.env.INCLUDE_TESTS;
+    const envExcludeTests = process.env.EXCLUDE_TESTS;
+    const envCookieDomain = process.env.COOKIE_DOMAIN;
+    const envJsonOnly = process.env.JSON_ONLY;
+    const envHtmlOnly = process.env.HTML_ONLY;
+
+    // Build config with environment variable defaults
     const config: TestConfig = {
-      targetUrl: url,
-      timeout: parseInt(options.timeout),
-      headless: options.headless,
-      outputDir: options.output,
-      crawlDepth: parseInt(options.crawlDepth),
-      maxPages: parseInt(options.maxPages),
-      includeTests: options.include ? options.include.split(',').map((t: string) => t.trim()) : undefined,
-      excludeTests: options.exclude ? options.exclude.split(',').map((t: string) => t.trim()) : undefined,
+      targetUrl,
+      timeout: options.timeout ? parseInt(options.timeout) : (envTimeout ? parseInt(envTimeout) : 30000),
+      headless: options.headless !== undefined ? options.headless : (envHeadless ? envHeadless.toLowerCase() === 'true' : true),
+      outputDir: options.output || envOutputDir || './reports',
+      crawlDepth: options.crawlDepth ? parseInt(options.crawlDepth) : (envCrawlDepth ? parseInt(envCrawlDepth) : 3),
+      maxPages: options.maxPages ? parseInt(options.maxPages) : (envMaxPages ? parseInt(envMaxPages) : 50),
+      includeTests: options.include
+        ? options.include.split(',').map((t: string) => t.trim())
+        : (envIncludeTests ? envIncludeTests.split(',').map((t: string) => t.trim()) : undefined),
+      excludeTests: options.exclude
+        ? options.exclude.split(',').map((t: string) => t.trim())
+        : (envExcludeTests ? envExcludeTests.split(',').map((t: string) => t.trim()) : undefined),
     };
 
-    // Add cookies if provided
+    // Parse cookies from CLI or environment
+    const cookies: Array<{ name: string; value: string; domain?: string }> = [];
+
+    // Add CLI cookies
     if (options.cookie && options.cookie.length > 0) {
-      config.cookies = options.cookie.map((cookie: any) => ({
+      cookies.push(...options.cookie.map((cookie: any) => ({
         name: cookie.name,
         value: cookie.value,
-        domain: options.cookieDomain,
-      }));
+        domain: options.cookieDomain || envCookieDomain,
+      })));
+    }
+
+    // Add environment cookies if no CLI cookies provided
+    if (cookies.length === 0 && envCookies) {
+      const cookiePairs = envCookies.split(',');
+      cookiePairs.forEach(pair => {
+        const [name, ...valueParts] = pair.split('=');
+        if (name && valueParts.length > 0) {
+          cookies.push({
+            name: name.trim(),
+            value: valueParts.join('=').trim(),
+            domain: options.cookieDomain || envCookieDomain,
+          });
+        }
+      });
+    }
+
+    if (cookies.length > 0) {
+      config.cookies = cookies;
+    }
+
+    // Update options for report generation
+    if (!options.jsonOnly && envJsonOnly && envJsonOnly.toLowerCase() === 'true') {
+      options.jsonOnly = true;
+    }
+    if (!options.htmlOnly && envHtmlOnly && envHtmlOnly.toLowerCase() === 'true') {
+      options.htmlOnly = true;
     }
 
     // Create test runner

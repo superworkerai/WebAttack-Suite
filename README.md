@@ -113,14 +113,42 @@ npm run build
 
 ## 🚀 Usage
 
-### Basic Scan
+### Option 1: Using `.env` File (Recommended)
+
+**Easiest way!** Configure once, run anytime without typing long commands.
+
+```bash
+# 1. Copy the example file
+cp .env.simple .env
+
+# 2. Edit with your values
+nano .env
+
+# 3. Run without arguments!
+npm run dev -- scan
+```
+
+**Example `.env`:**
+```bash
+TARGET_URL=https://app.example.com/dashboard
+COOKIES=session=abc123xyz789,csrf_token=token456
+CRAWL_DEPTH=3
+MAX_PAGES=50
+```
+
+📖 **See [ENV_CONFIGURATION.md](ENV_CONFIGURATION.md) for complete .env guide**
+
+### Option 2: Command Line Arguments
 
 ```bash
 # Scan a website
 npm run dev -- scan https://example.com
 
-# Or after building
-node dist/index.js scan https://example.com
+# With authentication and crawling
+npm run dev -- scan https://app.example.com \
+  --cookie "session=abc123xyz" \
+  --crawl-depth 3 \
+  --max-pages 50
 ```
 
 ### Advanced Options
