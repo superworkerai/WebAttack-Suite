@@ -1,0 +1,12 @@
+{
+  "targetUrl": "https://example.com",
+  "timeout": 30000,
+  "headless": true,
+  "outputDir": "./reports",
+  "excludeTests": [],
+  "includeTests": [],
+  "customHeaders": {
+    "User-Agent": "WebAttack-Suite/1.0"
+  },
+  "maxConcurrency": 5
+}
