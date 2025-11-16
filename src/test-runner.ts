@@ -55,13 +55,24 @@ export class TestRunner {
       if (this.config.cookies && this.config.cookies.length > 0) {
         console.log(`[*] Setting ${this.config.cookies.length} authentication cookie(s)`);
         const url = new URL(this.config.targetUrl);
-        const cookiesToSet = this.config.cookies.map(cookie => ({
-          name: cookie.name,
-          value: cookie.value,
-          domain: cookie.domain || url.hostname,
-          path: cookie.path || '/',
-          url: this.config.targetUrl,
-        }));
+
+        const cookiesToSet = this.config.cookies.map(cookie => {
+          const cookieObj: any = {
+            name: cookie.name,
+            value: cookie.value,
+            path: cookie.path || '/',
+          };
+
+          // Set either domain OR url, not both
+          if (cookie.domain) {
+            cookieObj.domain = cookie.domain;
+          } else {
+            cookieObj.url = this.config.targetUrl;
+          }
+
+          return cookieObj;
+        });
+
         await page.context().addCookies(cookiesToSet);
         console.log(`[+] Cookies set successfully\n`);
       }
