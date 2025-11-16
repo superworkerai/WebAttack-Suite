@@ -35,14 +35,14 @@ program
   .option('--headless', 'Run browser in headless mode')
   .option('--no-headless', 'Run browser in visible mode')
   .option('-t, --timeout <ms>', 'Timeout for each test in milliseconds')
-  .option('--cookie <name=value>', 'Authentication cookie (can be used multiple times)', (value, previous) => {
+  .option('--cookie <name=value>', 'Authentication cookie (can be used multiple times)', (value, previous: Array<{name: string; value: string}>) => {
     const cookies = previous || [];
     const [name, ...valueParts] = value.split('=');
     if (name && valueParts.length > 0) {
       cookies.push({ name: name.trim(), value: valueParts.join('=').trim() });
     }
     return cookies;
-  }, [])
+  }, [] as Array<{name: string; value: string}>)
   .option('--cookie-domain <domain>', 'Cookie domain (optional)')
   .option('--crawl-depth <depth>', 'How deep to crawl for inputs (0 = no crawling)')
   .option('--max-pages <pages>', 'Maximum pages to crawl')

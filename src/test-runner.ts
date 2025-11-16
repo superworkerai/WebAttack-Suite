@@ -1,5 +1,5 @@
 import { chromium, Browser, Page } from 'playwright';
-import { BaseTest, TestConfig, TestContext, TestReport, TestResult } from './types.js';
+import { BaseTest, TestConfig, TestContext, TestReport, TestResult, CrawlResult, InputField, FormInfo } from './types.js';
 import { Crawler } from './crawler.js';
 
 export class TestRunner {
@@ -67,9 +67,9 @@ export class TestRunner {
       }
 
       // Run crawler if depth > 0
-      let crawlResults = [];
-      let discoveredInputs = [];
-      let discoveredForms = [];
+      let crawlResults: CrawlResult[] = [];
+      let discoveredInputs: InputField[] = [];
+      let discoveredForms: FormInfo[] = [];
 
       if (this.config.crawlDepth && this.config.crawlDepth > 0) {
         const crawler = new Crawler(
