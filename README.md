@@ -11,6 +11,48 @@ A comprehensive, modular security testing framework built with Playwright for au
 - The authors are not responsible for misuse of this tool
 - Always obtain proper authorization before conducting security assessments
 
+## 🚀 New Features
+
+### 🔐 Cookie-Based Authentication
+Test authenticated areas of your application by providing session cookies:
+```bash
+npm run dev -- scan https://app.example.com/dashboard \
+  --cookie "session=abc123xyz" \
+  --cookie "csrf_token=xyz789"
+```
+
+### 🕷️ Deep Web Crawling
+Automatically discover and test inputs across your entire application (up to 3 levels deep by default):
+```bash
+npm run dev -- scan https://example.com \
+  --crawl-depth 3 \
+  --max-pages 50
+```
+
+The crawler automatically:
+- Follows links recursively
+- Discovers all input fields and forms
+- Tests each discovered input for vulnerabilities
+- Maps your entire application's attack surface
+
+### 🎯 Combined Power
+```bash
+# Test an authenticated application comprehensively
+npm run dev -- scan https://app.example.com \
+  --cookie "session=your_token" \
+  --crawl-depth 3 \
+  --max-pages 50
+```
+
+**Result:** Instead of testing just one page, the tool now:
+1. Sets your authentication cookies
+2. Crawls your entire application (up to 50 pages, 3 levels deep)
+3. Tests **every discovered input field** for XSS, SQLi, and other vulnerabilities
+4. Reports findings with the exact URL and field that's vulnerable
+
+📖 **See [AUTHENTICATION_CRAWLING.md](AUTHENTICATION_CRAWLING.md) for the complete guide**
+📋 **See [EXAMPLES.md](EXAMPLES.md) for common usage patterns**
+
 ## 🎯 Features
 
 ### Comprehensive Test Coverage
