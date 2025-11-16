@@ -1,5 +1,6 @@
 import { chromium, Browser, Page } from 'playwright';
 import { BaseTest, TestConfig, TestContext, TestReport, TestResult } from './types.js';
+import { Crawler } from './crawler.js';
 
 export class TestRunner {
   private tests: BaseTest[] = [];
@@ -11,6 +12,8 @@ export class TestRunner {
       timeout: 30000,
       headless: true,
       outputDir: './reports',
+      crawlDepth: 3,
+      maxPages: 50,
       ...config,
     };
   }
@@ -48,11 +51,52 @@ export class TestRunner {
 
       page.setDefaultTimeout(this.config.timeout!);
 
+      // Set authentication cookies if provided
+      if (this.config.cookies && this.config.cookies.length > 0) {
+        console.log(`[*] Setting ${this.config.cookies.length} authentication cookie(s)`);
+        const url = new URL(this.config.targetUrl);
+        const cookiesToSet = this.config.cookies.map(cookie => ({
+          name: cookie.name,
+          value: cookie.value,
+          domain: cookie.domain || url.hostname,
+          path: cookie.path || '/',
+          url: this.config.targetUrl,
+        }));
+        await page.context().addCookies(cookiesToSet);
+        console.log(`[+] Cookies set successfully\n`);
+      }
+
+      // Run crawler if depth > 0
+      let crawlResults = [];
+      let discoveredInputs = [];
+      let discoveredForms = [];
+
+      if (this.config.crawlDepth && this.config.crawlDepth > 0) {
+        const crawler = new Crawler(
+          this.config.targetUrl,
+          this.config.crawlDepth,
+          this.config.maxPages
+        );
+        crawlResults = await crawler.crawl(page);
+        discoveredInputs = crawler.getDiscoveredInputs();
+        discoveredForms = crawler.getDiscoveredForms();
+
+        const stats = crawler.getStats();
+        console.log(`[*] Crawl Statistics:`);
+        console.log(`    Pages crawled: ${stats.pages}`);
+        console.log(`    Input fields found: ${stats.inputs}`);
+        console.log(`    Forms found: ${stats.forms}`);
+        console.log(`    Links discovered: ${stats.totalLinks}\n`);
+      }
+
       const context: TestContext = {
         page,
         browser,
         config: this.config,
         baseUrl: this.config.targetUrl,
+        crawlResults,
+        discoveredInputs,
+        discoveredForms,
       };
 
       // Filter tests based on config

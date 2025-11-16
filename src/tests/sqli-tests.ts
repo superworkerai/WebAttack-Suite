@@ -232,9 +232,83 @@ export class SQLiTests extends BaseTest {
 
   private async testFormSQLi(context: TestContext): Promise<TestResult[]> {
     const results: TestResult[] = [];
-    const { page, baseUrl } = context;
+    const { page, baseUrl, discoveredForms } = context;
 
     try {
+      // Use discovered forms from crawler if available
+      if (discoveredForms && discoveredForms.length > 0) {
+        console.log(`    Testing ${Math.min(discoveredForms.length, 5)} discovered forms`);
+
+        for (const form of discoveredForms.slice(0, 5)) {
+          try {
+            await page.goto(form.url, { waitUntil: 'domcontentloaded', timeout: 10000 });
+
+            for (const payload of this.sqliPayloads.slice(0, 3)) {
+              try {
+                // Fill all form inputs with the payload
+                for (const input of form.inputs.slice(0, 2)) {
+                  const element = await page.$(input.selector);
+                  if (element) {
+                    await element.fill(payload);
+                  }
+                }
+
+                // Try to submit the form
+                const submitButton = await page.$('button[type="submit"], input[type="submit"]');
+                if (submitButton) {
+                  await submitButton.click();
+                  await page.waitForTimeout(500);
+
+                  const content = await page.content();
+
+                  // Check for SQL errors
+                  for (const pattern of this.errorPatterns) {
+                    if (pattern.test(content)) {
+                      results.push(
+                        this.createResult(
+                          'Form SQL Injection',
+                          this.category,
+                          'critical',
+                          true,
+                          `SQL injection vulnerability detected in form`,
+                          [
+                            `URL: ${form.url}`,
+                            `Payload: ${payload}`,
+                            `Error pattern matched: ${pattern}`
+                          ],
+                          'Use parameterized queries for all form data processing.',
+                          { payload, url: form.url }
+                        )
+                      );
+                      return results;
+                    }
+                  }
+                }
+              } catch (error) {
+                // Continue testing
+              }
+            }
+          } catch (error) {
+            // Continue to next form
+          }
+        }
+
+        if (results.length === 0) {
+          results.push(
+            this.createResult(
+              'Form SQL Injection',
+              this.category,
+              'info',
+              false,
+              `No SQL injection vulnerabilities detected in ${Math.min(discoveredForms.length, 5)} form(s)`,
+              []
+            )
+          );
+        }
+        return results;
+      }
+
+      // Fallback to original method
       await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
 
       // Find forms

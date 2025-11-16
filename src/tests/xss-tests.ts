@@ -184,9 +184,97 @@ export class XSSTests extends BaseTest {
 
   private async testFormXSS(context: TestContext): Promise<TestResult[]> {
     const results: TestResult[] = [];
-    const { page, baseUrl } = context;
+    const { page, baseUrl, discoveredInputs } = context;
 
     try {
+      // Use discovered inputs from crawler if available
+      if (discoveredInputs && discoveredInputs.length > 0) {
+        console.log(`    Testing ${Math.min(discoveredInputs.length, 10)} discovered input fields`);
+
+        // Group inputs by URL
+        const inputsByUrl = new Map<string, typeof discoveredInputs>();
+        discoveredInputs.forEach(input => {
+          if (!inputsByUrl.has(input.url)) {
+            inputsByUrl.set(input.url, []);
+          }
+          inputsByUrl.get(input.url)!.push(input);
+        });
+
+        // Test inputs from different pages
+        let testedCount = 0;
+        for (const [url, inputs] of inputsByUrl) {
+          if (testedCount >= 10) break; // Limit to 10 inputs max
+
+          try {
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
+
+            for (const inputField of inputs.slice(0, 2)) { // Test max 2 per page
+              if (testedCount >= 10) break;
+
+              const testPayload = this.xssPayloads[0];
+
+              try {
+                let dialogDetected = false;
+                page.once('dialog', async dialog => {
+                  dialogDetected = true;
+                  await dialog.dismiss();
+                });
+
+                const element = await page.$(inputField.selector);
+                if (element) {
+                  await element.fill(testPayload);
+                  await element.press('Enter');
+                  await page.waitForTimeout(500);
+
+                  const content = await page.content();
+                  const isReflected = content.includes(testPayload);
+
+                  if (dialogDetected || isReflected) {
+                    results.push(
+                      this.createResult(
+                        'Form XSS',
+                        this.category,
+                        'high',
+                        true,
+                        `XSS vulnerability detected in input field`,
+                        [
+                          `URL: ${url}`,
+                          `Field: ${inputField.name}`,
+                          `Dialog triggered: ${dialogDetected}`
+                        ],
+                        'Implement input validation and output encoding for all form fields.',
+                        { payload: testPayload, url, field: inputField.name }
+                      )
+                    );
+                    return results; // Found vulnerability, stop testing
+                  }
+                  testedCount++;
+                }
+              } catch (error) {
+                // Continue testing other inputs
+              }
+            }
+          } catch (error) {
+            // Continue to next URL
+          }
+        }
+
+        if (results.length === 0) {
+          results.push(
+            this.createResult(
+              'Form XSS',
+              this.category,
+              'info',
+              false,
+              `No XSS vulnerabilities detected in ${testedCount} discovered input field(s)`,
+              []
+            )
+          );
+        }
+        return results;
+      }
+
+      // Fallback to original method if no crawler data
       await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
 
       // Find all input fields

@@ -31,6 +31,17 @@ program
   .option('--headless', 'Run browser in headless mode', true)
   .option('--no-headless', 'Run browser in visible mode')
   .option('-t, --timeout <ms>', 'Timeout for each test in milliseconds', '30000')
+  .option('--cookie <name=value>', 'Authentication cookie (can be used multiple times)', (value, previous) => {
+    const cookies = previous || [];
+    const [name, ...valueParts] = value.split('=');
+    if (name && valueParts.length > 0) {
+      cookies.push({ name: name.trim(), value: valueParts.join('=').trim() });
+    }
+    return cookies;
+  }, [])
+  .option('--cookie-domain <domain>', 'Cookie domain (optional, defaults to target domain)')
+  .option('--crawl-depth <depth>', 'How deep to crawl for inputs (0 = no crawling, default: 3)', '3')
+  .option('--max-pages <pages>', 'Maximum pages to crawl (default: 50)', '50')
   .option('--include <tests>', 'Comma-separated list of tests to include')
   .option('--exclude <tests>', 'Comma-separated list of tests to exclude')
   .option('--json-only', 'Generate only JSON report (skip HTML)')
@@ -57,9 +68,20 @@ program
       timeout: parseInt(options.timeout),
       headless: options.headless,
       outputDir: options.output,
+      crawlDepth: parseInt(options.crawlDepth),
+      maxPages: parseInt(options.maxPages),
       includeTests: options.include ? options.include.split(',').map((t: string) => t.trim()) : undefined,
       excludeTests: options.exclude ? options.exclude.split(',').map((t: string) => t.trim()) : undefined,
     };
+
+    // Add cookies if provided
+    if (options.cookie && options.cookie.length > 0) {
+      config.cookies = options.cookie.map((cookie: any) => ({
+        name: cookie.name,
+        value: cookie.value,
+        domain: options.cookieDomain,
+      }));
+    }
 
     // Create test runner
     const runner = new TestRunner(config);

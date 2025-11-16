@@ -34,6 +34,28 @@ export interface TestReport {
   };
 }
 
+export interface CrawlResult {
+  url: string;
+  inputs: InputField[];
+  forms: FormInfo[];
+  links: string[];
+}
+
+export interface InputField {
+  url: string;
+  type: string;
+  name: string;
+  id?: string;
+  selector: string;
+}
+
+export interface FormInfo {
+  url: string;
+  action?: string;
+  method: string;
+  inputs: InputField[];
+}
+
 export interface TestConfig {
   targetUrl: string;
   maxConcurrency?: number;
@@ -44,10 +66,18 @@ export interface TestConfig {
     username: string;
     password: string;
   };
+  cookies?: Array<{
+    name: string;
+    value: string;
+    domain?: string;
+    path?: string;
+  }>;
   customHeaders?: Record<string, string>;
   excludeTests?: string[];
   includeTests?: string[];
   outputDir?: string;
+  crawlDepth?: number;
+  maxPages?: number;
 }
 
 export interface TestContext {
@@ -55,6 +85,9 @@ export interface TestContext {
   browser: Browser;
   config: TestConfig;
   baseUrl: string;
+  crawlResults: CrawlResult[];
+  discoveredInputs: InputField[];
+  discoveredForms: FormInfo[];
 }
 
 export abstract class BaseTest {
