@@ -60,13 +60,15 @@ export class TestRunner {
           const cookieObj: any = {
             name: cookie.name,
             value: cookie.value,
-            path: cookie.path || '/',
           };
 
-          // Set either domain OR url, not both
+          // Playwright requires either (url) OR (domain + path), not both
           if (cookie.domain) {
+            // Use explicit domain and path
             cookieObj.domain = cookie.domain;
+            cookieObj.path = cookie.path || '/';
           } else {
+            // Use url (domain and path are inferred from the URL)
             cookieObj.url = this.config.targetUrl;
           }
 
