@@ -46,6 +46,18 @@ export class ReportGenerator {
     const mediumVulns = vulnerabilities.filter(r => r.severity === 'medium');
     const lowVulns = vulnerabilities.filter(r => r.severity === 'low');
 
+    // HTML escape function to prevent XSS in reports
+    const escapeHtml = (text: string): string => {
+      const map: Record<string, string> = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      };
+      return text.replace(/[&<>"']/g, (m) => map[m]);
+    };
+
     const getSeverityColor = (severity: string): string => {
       switch (severity) {
         case 'critical': return '#dc2626';
@@ -335,7 +347,7 @@ export class ReportGenerator {
     <div class="container">
         <header>
             <h1>🔒 Security Scan Report</h1>
-            <div class="subtitle">Target: ${report.targetUrl}</div>
+            <div class="subtitle">Target: ${escapeHtml(report.targetUrl)}</div>
             <div class="subtitle timestamp">Scan Time: ${new Date(report.scanStartTime).toLocaleString()}</div>
             <div class="subtitle">Duration: ${(report.totalDuration / 1000).toFixed(2)}s</div>
         </header>
@@ -382,30 +394,30 @@ export class ReportGenerator {
                      data-vulnerable="${result.vulnerable}">
                     <div class="test-header">
                         <div>
-                            <div class="test-title">${result.testName}</div>
-                            <div class="category">${result.category}</div>
+                            <div class="test-title">${escapeHtml(result.testName)}</div>
+                            <div class="category">${escapeHtml(result.category)}</div>
                         </div>
                         <span class="severity-badge" style="background: ${getSeverityBg(result.severity)}; color: ${getSeverityColor(result.severity)}">
-                            ${result.severity}
+                            ${escapeHtml(result.severity)}
                         </span>
                     </div>
-                    <div class="description">${result.description}</div>
+                    <div class="description">${escapeHtml(result.description)}</div>
                     ${result.evidence && result.evidence.length > 0 ? `
                         <div class="evidence">
                             <h4>Evidence:</h4>
-                            ${result.evidence.map(e => `<div class="evidence-item">• ${e}</div>`).join('')}
+                            ${result.evidence.map(e => `<div class="evidence-item">• ${escapeHtml(e)}</div>`).join('')}
                         </div>
                     ` : ''}
                     ${result.details ? `
                         <div class="evidence">
                             <h4>Details:</h4>
-                            <pre class="evidence-item" style="white-space: pre-wrap;">${JSON.stringify(result.details, null, 2)}</pre>
+                            <pre class="evidence-item" style="white-space: pre-wrap;">${escapeHtml(JSON.stringify(result.details, null, 2))}</pre>
                         </div>
                     ` : ''}
                     ${result.recommendation ? `
                         <div class="recommendation">
                             <h4>💡 Recommendation:</h4>
-                            <p>${result.recommendation}</p>
+                            <p>${escapeHtml(result.recommendation)}</p>
                         </div>
                     ` : ''}
                     <div class="stats">
