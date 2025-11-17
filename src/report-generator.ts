@@ -284,6 +284,13 @@ export class ReportGenerator {
             word-break: break-all;
         }
 
+        .evidence-item pre {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            border: none;
+        }
+
         .recommendation {
             background: #ecfdf5;
             border-left: 3px solid #10b981;
@@ -358,13 +365,13 @@ export class ReportGenerator {
 
         <div class="filters">
             <div class="filter-buttons">
-                <button class="filter-btn active" onclick="filterResults('all')">All (${report.testResults.length})</button>
-                <button class="filter-btn" onclick="filterResults('vulnerable')">Vulnerabilities (${vulnerabilities.length})</button>
-                <button class="filter-btn" onclick="filterResults('critical')">Critical (${report.summary.critical})</button>
-                <button class="filter-btn" onclick="filterResults('high')">High (${report.summary.high})</button>
-                <button class="filter-btn" onclick="filterResults('medium')">Medium (${report.summary.medium})</button>
-                <button class="filter-btn" onclick="filterResults('low')">Low (${report.summary.low})</button>
-                <button class="filter-btn" onclick="filterResults('passed')">Passed (${report.summary.passed})</button>
+                <button class="filter-btn active" onclick="filterResults('all', this)">All (${report.testResults.length})</button>
+                <button class="filter-btn" onclick="filterResults('vulnerable', this)">Vulnerabilities (${vulnerabilities.length})</button>
+                <button class="filter-btn" onclick="filterResults('critical', this)">Critical (${report.summary.critical})</button>
+                <button class="filter-btn" onclick="filterResults('high', this)">High (${report.summary.high})</button>
+                <button class="filter-btn" onclick="filterResults('medium', this)">Medium (${report.summary.medium})</button>
+                <button class="filter-btn" onclick="filterResults('low', this)">Low (${report.summary.low})</button>
+                <button class="filter-btn" onclick="filterResults('passed', this)">Passed (${report.summary.passed})</button>
             </div>
         </div>
 
@@ -389,6 +396,12 @@ export class ReportGenerator {
                             ${result.evidence.map(e => `<div class="evidence-item">• ${e}</div>`).join('')}
                         </div>
                     ` : ''}
+                    ${result.details ? `
+                        <div class="evidence">
+                            <h4>Details:</h4>
+                            <pre class="evidence-item" style="white-space: pre-wrap;">${JSON.stringify(result.details, null, 2)}</pre>
+                        </div>
+                    ` : ''}
                     ${result.recommendation ? `
                         <div class="recommendation">
                             <h4>💡 Recommendation:</h4>
@@ -410,13 +423,15 @@ export class ReportGenerator {
     </div>
 
     <script>
-        function filterResults(filter) {
+        function filterResults(filter, clickedButton) {
             const results = document.querySelectorAll('.test-result');
             const buttons = document.querySelectorAll('.filter-btn');
 
             // Update active button
             buttons.forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
+            if (clickedButton) {
+                clickedButton.classList.add('active');
+            }
 
             results.forEach(result => {
                 const severity = result.dataset.severity;

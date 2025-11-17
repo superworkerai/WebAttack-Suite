@@ -125,7 +125,8 @@ export class TestRunner {
 
       // Run tests sequentially (can be parallelized in future)
       for (const test of testsToRun) {
-        console.log(`[+] Running: ${test.name} (${test.category})`);
+        console.log(`\n[+] Running: ${test.name} (${test.category})`);
+        console.log(`    Description: ${test.description}`);
         const testStartTime = Date.now();
 
         try {
@@ -139,12 +140,33 @@ export class TestRunner {
 
           allResults.push(...results);
 
+          // Log each individual test result
+          results.forEach((result, index) => {
+            const icon = result.vulnerable ? '⚠️' : '✓';
+            const severityLabel = result.vulnerable ? `[${result.severity.toUpperCase()}]` : '';
+
+            console.log(`\n    ${icon} Test ${index + 1}: ${result.testName} ${severityLabel}`);
+            console.log(`       Status: ${result.passed ? 'PASSED' : 'FAILED'}`);
+            console.log(`       ${result.description}`);
+
+            if (result.evidence && result.evidence.length > 0) {
+              console.log(`       Evidence:`);
+              result.evidence.forEach(ev => console.log(`         • ${ev}`));
+            }
+
+            if (result.recommendation) {
+              console.log(`       Recommendation: ${result.recommendation}`);
+            }
+
+            if (result.details) {
+              console.log(`       Details: ${JSON.stringify(result.details, null, 2).split('\n').join('\n         ')}`);
+            }
+          });
+
           const vulnerableCount = results.filter(r => r.vulnerable).length;
-          if (vulnerableCount > 0) {
-            console.log(`  ⚠️  Found ${vulnerableCount} vulnerability(ies)`);
-          } else {
-            console.log(`  ✓ No vulnerabilities detected`);
-          }
+          console.log(`\n    Summary: ${results.length} test(s) run, ${vulnerableCount} vulnerability(ies) found`);
+          console.log(`    Duration: ${(testDuration / 1000).toFixed(2)}s`);
+
         } catch (error) {
           console.log(`  ✗ Error running test: ${error}`);
           allResults.push({
