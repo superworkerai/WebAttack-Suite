@@ -19,7 +19,7 @@ import { InputValidationTests } from './tests/input-validation-tests.js';
 import { InformationDisclosureTests } from './tests/information-disclosure-tests.js';
 import { BusinessLogicTests } from './tests/business-logic-tests.js';
 import { SSLTLSTests } from './tests/ssl-tls-tests.js';
-import { AISuggestedTests } from './tests/ai-suggested-tests.js';
+import { AIAutonomousTests } from './tests/ai-autonomous-tests.js';
 
 const program = new Command();
 
@@ -164,8 +164,9 @@ program
 
     // Register AI-powered tests if enabled and API key is provided
     if (openaiApiKey && enableAITests) {
-      console.log('🤖 AI-powered test suggestions enabled\n');
-      runner.registerTest(new AISuggestedTests(openaiApiKey));
+      console.log('🤖 AI Autonomous Penetration Testing enabled\n');
+      console.log('   AI will analyze pages, generate context-aware attacks, and adapt based on responses\n');
+      runner.registerTest(new AIAutonomousTests(openaiApiKey));
     } else if (!openaiApiKey) {
       console.log('ℹ️  AI features disabled (OPENAI_API_KEY not set)\n');
     }
@@ -241,9 +242,15 @@ program
     });
 
     console.log('\n🤖 AI-Powered Test Modules (requires OPENAI_API_KEY):\n');
-    console.log('10. AI-Suggested Security Tests');
+    console.log('10. AI Autonomous Security Tests');
     console.log('   Category: AI-Powered');
-    console.log('   Description: AI-powered security test suggestions based on page analysis');
+    console.log('   Description: AI-driven autonomous penetration testing that understands user flows,');
+    console.log('                generates context-aware attacks, and adapts based on application responses');
+    console.log('   Features: - AI analyzes pages to understand legitimate user interactions');
+    console.log('             - Generates specific attack scenarios targeting business logic');
+    console.log('             - Actually submits forms and clicks buttons intelligently');
+    console.log('             - Adapts attack strategy based on responses (max 2 iterations)');
+    console.log('             - Tests for SQL injection, auth bypass, DoS, race conditions, etc.');
     console.log('   Note: Set OPENAI_API_KEY in .env to enable\n');
   });
 
