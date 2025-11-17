@@ -19,6 +19,7 @@ import { InputValidationTests } from './tests/input-validation-tests.js';
 import { InformationDisclosureTests } from './tests/information-disclosure-tests.js';
 import { BusinessLogicTests } from './tests/business-logic-tests.js';
 import { SSLTLSTests } from './tests/ssl-tls-tests.js';
+import { AISuggestedTests } from './tests/ai-suggested-tests.js';
 
 const program = new Command();
 
@@ -144,6 +145,10 @@ program
     // Create test runner
     const runner = new TestRunner(config);
 
+    // Get OpenAI API key from environment
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    const enableAITests = process.env.ENABLE_AI_TESTS !== 'false'; // Default to true if API key exists
+
     // Register all test modules
     runner.registerTests([
       new XSSTests(),
@@ -156,6 +161,14 @@ program
       new BusinessLogicTests(),
       new SSLTLSTests(),
     ]);
+
+    // Register AI-powered tests if enabled and API key is provided
+    if (openaiApiKey && enableAITests) {
+      console.log('🤖 AI-powered test suggestions enabled\n');
+      runner.registerTest(new AISuggestedTests(openaiApiKey));
+    } else if (!openaiApiKey) {
+      console.log('ℹ️  AI features disabled (OPENAI_API_KEY not set)\n');
+    }
 
     try {
       // Run tests
@@ -226,6 +239,12 @@ program
       console.log(`   Description: ${test.description}`);
       console.log('');
     });
+
+    console.log('\n🤖 AI-Powered Test Modules (requires OPENAI_API_KEY):\n');
+    console.log('10. AI-Suggested Security Tests');
+    console.log('   Category: AI-Powered');
+    console.log('   Description: AI-powered security test suggestions based on page analysis');
+    console.log('   Note: Set OPENAI_API_KEY in .env to enable\n');
   });
 
 program.parse();

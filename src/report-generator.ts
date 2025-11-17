@@ -46,6 +46,10 @@ export class ReportGenerator {
     const mediumVulns = vulnerabilities.filter(r => r.severity === 'medium');
     const lowVulns = vulnerabilities.filter(r => r.severity === 'low');
 
+    // Separate regular and AI-suggested tests
+    const regularTests = report.testResults.filter(r => !r.aiSuggested);
+    const aiSuggestedTests = report.testResults.filter(r => r.aiSuggested);
+
     // HTML escape function to prevent XSS in reports
     const escapeHtml = (text: string): string => {
       const map: Record<string, string> = {
@@ -77,6 +81,79 @@ export class ReportGenerator {
         default: return '#f3f4f6';
       }
     };
+
+    const renderTestResult = (result: any) => `
+      <div class="test-result ${result.vulnerable ? 'vulnerable' : 'passed'} ${result.severity}"
+           data-severity="${result.severity}"
+           data-vulnerable="${result.vulnerable}"
+           data-ai="${result.aiSuggested || false}">
+          <div class="test-header">
+              <div>
+                  <div class="test-title">${escapeHtml(result.testName)}</div>
+                  <div class="category">${escapeHtml(result.category)}</div>
+                  ${result.aiSuggested ? '<span class="ai-badge">🤖 AI-Suggested</span>' : ''}
+              </div>
+              <span class="severity-badge" style="background: ${getSeverityBg(result.severity)}; color: ${getSeverityColor(result.severity)}">
+                  ${escapeHtml(result.severity)}
+              </span>
+          </div>
+          <div class="description">${escapeHtml(result.description)}</div>
+          ${result.url ? `
+              <div class="evidence">
+                  <h4>🔗 URL:</h4>
+                  <div class="evidence-item">${escapeHtml(result.url)}</div>
+              </div>
+          ` : ''}
+          ${result.vulnerableParameter ? `
+              <div class="evidence">
+                  <h4>⚡ Vulnerable Parameter:</h4>
+                  <div class="evidence-item">${escapeHtml(result.vulnerableParameter)}</div>
+              </div>
+          ` : ''}
+          ${result.aiReasoning ? `
+              <div class="evidence" style="background: #ede9fe; border-color: #c4b5fd;">
+                  <h4>🤖 AI Analysis:</h4>
+                  <div class="evidence-item">${escapeHtml(result.aiReasoning)}</div>
+              </div>
+          ` : ''}
+          ${result.evidence && result.evidence.length > 0 ? `
+              <div class="evidence">
+                  <h4>Evidence:</h4>
+                  ${result.evidence.map((e: string) => `<div class="evidence-item">• ${escapeHtml(e)}</div>`).join('')}
+              </div>
+          ` : ''}
+          ${result.remediationSteps && result.remediationSteps.length > 0 ? `
+              <div class="recommendation" style="background: #dbeafe; border-left-color: #3b82f6;">
+                  <h4 style="color: #1e40af;">🔧 Remediation Steps:</h4>
+                  <ol style="margin-left: 20px; color: #1e3a8a;">
+                      ${result.remediationSteps.map((step: string) => `<li style="margin: 5px 0;">${escapeHtml(step)}</li>`).join('')}
+                  </ol>
+              </div>
+          ` : ''}
+          ${result.codeExample ? `
+              <div class="evidence" style="background: #f0fdf4; border-color: #86efac;">
+                  <h4 style="color: #15803d;">💻 Code Example:</h4>
+                  <pre class="evidence-item" style="white-space: pre-wrap; font-size: 0.85em; background: #f9fafb; padding: 10px; border-radius: 4px;">${escapeHtml(result.codeExample)}</pre>
+              </div>
+          ` : ''}
+          ${result.details ? `
+              <div class="evidence">
+                  <h4>Details:</h4>
+                  <pre class="evidence-item" style="white-space: pre-wrap;">${escapeHtml(JSON.stringify(result.details, null, 2))}</pre>
+              </div>
+          ` : ''}
+          ${result.recommendation && !result.remediationSteps ? `
+              <div class="recommendation">
+                  <h4>💡 Recommendation:</h4>
+                  <p>${escapeHtml(result.recommendation)}</p>
+              </div>
+          ` : ''}
+          <div class="stats">
+              <span>⏱️ ${result.duration}ms</span>
+              <span>🕐 ${new Date(result.timestamp).toLocaleTimeString()}</span>
+          </div>
+      </div>
+    `;
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -268,6 +345,37 @@ export class ReportGenerator {
             color: #6b7280;
         }
 
+        .ai-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 6px;
+            font-size: 0.75em;
+            margin-left: 8px;
+            font-weight: 600;
+        }
+
+        .section-header {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin: 30px 0 15px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #667eea;
+        }
+
+        .section-header h2 {
+            font-size: 1.5em;
+            color: #1f2937;
+            margin: 0;
+        }
+
+        .section-header.ai-section {
+            border-left-color: #764ba2;
+            background: linear-gradient(to right, #faf5ff 0%, white 50%);
+        }
+
         .description {
             color: #4b5563;
             margin: 10px 0;
@@ -384,48 +492,24 @@ export class ReportGenerator {
                 <button class="filter-btn" onclick="filterResults('medium', this)">Medium (${report.summary.medium})</button>
                 <button class="filter-btn" onclick="filterResults('low', this)">Low (${report.summary.low})</button>
                 <button class="filter-btn" onclick="filterResults('passed', this)">Passed (${report.summary.passed})</button>
+                ${aiSuggestedTests.length > 0 ? `<button class="filter-btn" onclick="filterResults('ai', this)">🤖 AI Tests (${aiSuggestedTests.length})</button>` : ''}
             </div>
         </div>
 
         <div id="results">
-            ${report.testResults.map(result => `
-                <div class="test-result ${result.vulnerable ? 'vulnerable' : 'passed'} ${result.severity}"
-                     data-severity="${result.severity}"
-                     data-vulnerable="${result.vulnerable}">
-                    <div class="test-header">
-                        <div>
-                            <div class="test-title">${escapeHtml(result.testName)}</div>
-                            <div class="category">${escapeHtml(result.category)}</div>
-                        </div>
-                        <span class="severity-badge" style="background: ${getSeverityBg(result.severity)}; color: ${getSeverityColor(result.severity)}">
-                            ${escapeHtml(result.severity)}
-                        </span>
-                    </div>
-                    <div class="description">${escapeHtml(result.description)}</div>
-                    ${result.evidence && result.evidence.length > 0 ? `
-                        <div class="evidence">
-                            <h4>Evidence:</h4>
-                            ${result.evidence.map(e => `<div class="evidence-item">• ${escapeHtml(e)}</div>`).join('')}
-                        </div>
-                    ` : ''}
-                    ${result.details ? `
-                        <div class="evidence">
-                            <h4>Details:</h4>
-                            <pre class="evidence-item" style="white-space: pre-wrap;">${escapeHtml(JSON.stringify(result.details, null, 2))}</pre>
-                        </div>
-                    ` : ''}
-                    ${result.recommendation ? `
-                        <div class="recommendation">
-                            <h4>💡 Recommendation:</h4>
-                            <p>${escapeHtml(result.recommendation)}</p>
-                        </div>
-                    ` : ''}
-                    <div class="stats">
-                        <span>⏱️ ${result.duration}ms</span>
-                        <span>🕐 ${new Date(result.timestamp).toLocaleTimeString()}</span>
-                    </div>
+            ${regularTests.length > 0 ? `
+                <div class="section-header">
+                    <h2>🔒 Standard Security Tests</h2>
                 </div>
-            `).join('')}
+                ${regularTests.map(result => renderTestResult(result)).join('')}
+            ` : ''}
+
+            ${aiSuggestedTests.length > 0 ? `
+                <div class="section-header ai-section">
+                    <h2>🤖 AI-Suggested Security Tests</h2>
+                </div>
+                ${aiSuggestedTests.map(result => renderTestResult(result)).join('')}
+            ` : ''}
         </div>
 
         <div class="footer">
@@ -437,6 +521,7 @@ export class ReportGenerator {
     <script>
         function filterResults(filter, clickedButton) {
             const results = document.querySelectorAll('.test-result');
+            const sections = document.querySelectorAll('.section-header');
             const buttons = document.querySelectorAll('.filter-btn');
 
             // Update active button
@@ -448,6 +533,7 @@ export class ReportGenerator {
             results.forEach(result => {
                 const severity = result.dataset.severity;
                 const vulnerable = result.dataset.vulnerable === 'true';
+                const isAI = result.dataset.ai === 'true';
 
                 let show = false;
                 switch(filter) {
@@ -460,6 +546,9 @@ export class ReportGenerator {
                     case 'passed':
                         show = !vulnerable;
                         break;
+                    case 'ai':
+                        show = isAI;
+                        break;
                     case 'critical':
                     case 'high':
                     case 'medium':
@@ -469,6 +558,18 @@ export class ReportGenerator {
                 }
 
                 result.style.display = show ? 'block' : 'none';
+            });
+
+            // Show/hide section headers based on visible results
+            sections.forEach(section => {
+                const nextResults = [];
+                let currentElement = section.nextElementSibling;
+                while (currentElement && currentElement.classList.contains('test-result')) {
+                    nextResults.push(currentElement);
+                    currentElement = currentElement.nextElementSibling;
+                }
+                const hasVisibleResults = nextResults.some(r => r.style.display !== 'none');
+                section.style.display = hasVisibleResults ? 'block' : 'none';
             });
         }
     </script>

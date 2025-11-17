@@ -68,18 +68,41 @@ export class XSSTests extends BaseTest {
         const isReflected = content.includes(payload) || content.includes(payload.replace(/"/g, '&quot;'));
 
         if (dialogDetected || isReflected) {
-          results.push(
-            this.createResult(
-              'Reflected XSS',
-              this.category,
-              'high',
-              true,
-              `Potential reflected XSS vulnerability detected with payload: ${payload}`,
-              [testUrl, `Dialog triggered: ${dialogDetected}`, `Payload reflected: ${isReflected}`],
-              'Implement proper input validation and output encoding. Use Content Security Policy (CSP).',
-              { payload, url: testUrl }
-            )
+          const result = this.createResult(
+            'Reflected XSS',
+            this.category,
+            'high',
+            true,
+            `Potential reflected XSS vulnerability detected with payload: ${payload}`,
+            [testUrl, `Dialog triggered: ${dialogDetected}`, `Payload reflected: ${isReflected}`],
+            'Implement proper input validation and output encoding. Use Content Security Policy (CSP).',
+            { payload, url: testUrl }
           );
+          result.url = testUrl;
+          result.vulnerableParameter = 'q';
+          result.remediationSteps = [
+            'Implement server-side input validation to reject script tags and JavaScript code',
+            'Encode all user input before reflecting it in HTML responses',
+            'Use Content Security Policy (CSP) headers to prevent inline script execution',
+            'Consider using a template engine with auto-escaping enabled',
+            'Validate and sanitize URL parameters on the server side'
+          ];
+          result.codeExample = `// Example: Safe output encoding in Node.js/Express
+function escapeHtml(unsafe) {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// In your route handler:
+app.get('/', (req, res) => {
+  const searchQuery = escapeHtml(req.query.q || '');
+  res.send(\`<h1>Search: \${searchQuery}</h1>\`);
+});`;
+          results.push(result);
           break; // Found vulnerability, no need to test more
         }
       } catch (error) {
@@ -142,18 +165,39 @@ export class XSSTests extends BaseTest {
       });
 
       if (dangerousSinks.length > 0) {
-        results.push(
-          this.createResult(
-            'DOM-based XSS Risk',
-            this.category,
-            'medium',
-            true,
-            'Potentially dangerous DOM manipulation patterns detected',
-            dangerousSinks,
-            'Review JavaScript code for unsafe DOM manipulation. Use safe APIs like textContent instead of innerHTML.',
-            { sinks: dangerousSinks }
-          )
+        const result = this.createResult(
+          'DOM-based XSS Risk',
+          this.category,
+          'medium',
+          true,
+          'Potentially dangerous DOM manipulation patterns detected',
+          dangerousSinks,
+          'Review JavaScript code for unsafe DOM manipulation. Use safe APIs like textContent instead of innerHTML.',
+          { sinks: dangerousSinks }
         );
+        result.url = baseUrl;
+        result.vulnerableParameter = 'JavaScript code (see evidence)';
+        result.remediationSteps = [
+          'Replace innerHTML assignments with safer alternatives like textContent or createTextNode',
+          'Avoid using eval() and similar dynamic code execution methods',
+          'Sanitize any user-controllable data before using it in DOM manipulation',
+          'Use DOMPurify library to sanitize HTML content if innerHTML is necessary',
+          'Implement CSP to prevent inline script execution'
+        ];
+        result.codeExample = `// UNSAFE - Vulnerable to DOM XSS
+element.innerHTML = userInput;
+eval(userCode);
+
+// SAFE - Use textContent for text
+element.textContent = userInput;
+
+// SAFE - Use DOMPurify for HTML
+element.innerHTML = DOMPurify.sanitize(userHTML);
+
+// SAFE - Use createElement for dynamic content
+const textNode = document.createTextNode(userInput);
+element.appendChild(textNode);`;
+        results.push(result);
       } else {
         results.push(
           this.createResult(
@@ -230,22 +274,50 @@ export class XSSTests extends BaseTest {
                   const isReflected = content.includes(testPayload);
 
                   if (dialogDetected || isReflected) {
-                    results.push(
-                      this.createResult(
-                        'Form XSS',
-                        this.category,
-                        'high',
-                        true,
-                        `XSS vulnerability detected in input field`,
-                        [
-                          `URL: ${url}`,
-                          `Field: ${inputField.name}`,
-                          `Dialog triggered: ${dialogDetected}`
-                        ],
-                        'Implement input validation and output encoding for all form fields.',
-                        { payload: testPayload, url, field: inputField.name }
-                      )
+                    const result = this.createResult(
+                      'Form XSS',
+                      this.category,
+                      'high',
+                      true,
+                      `XSS vulnerability detected in input field`,
+                      [
+                        `URL: ${url}`,
+                        `Field: ${inputField.name}`,
+                        `Dialog triggered: ${dialogDetected}`
+                      ],
+                      'Implement input validation and output encoding for all form fields.',
+                      { payload: testPayload, url, field: inputField.name }
                     );
+                    result.url = url;
+                    result.vulnerableParameter = inputField.name;
+                    result.remediationSteps = [
+                      `Sanitize and validate the '${inputField.name}' input field on the server side`,
+                      'Encode all user input before rendering it in HTML',
+                      'Use a Content Security Policy (CSP) to block inline scripts',
+                      'Implement input type validation (reject script tags, event handlers, etc.)',
+                      'Consider using a security library like DOMPurify for client-side sanitization'
+                    ];
+                    result.codeExample = `// Example: Server-side validation and sanitization
+// Using express-validator
+const { body, validationResult } = require('express-validator');
+
+app.post('/submit', [
+  body('${inputField.name}')
+    .trim()
+    .escape()  // Escapes HTML characters
+    .isLength({ max: 500 })
+    .notEmpty()
+], (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  // Process sanitized input
+  const sanitizedValue = req.body.${inputField.name};
+  // ... your logic here
+});`;
+                    results.push(result);
                     return results; // Found vulnerability, stop testing
                   }
                   testedCount++;

@@ -95,22 +95,48 @@ export class SQLiTests extends BaseTest {
           // Check for SQL error messages
           for (const pattern of this.errorPatterns) {
             if (pattern.test(content)) {
-              results.push(
-                this.createResult(
-                  'Error-based SQL Injection',
-                  this.category,
-                  'critical',
-                  true,
-                  `SQL injection vulnerability detected via error message`,
-                  [
-                    `URL: ${testUrl}`,
-                    `Payload: ${payload}`,
-                    `Error pattern matched: ${pattern}`,
-                  ],
-                  'Use parameterized queries (prepared statements) for all database operations. Never concatenate user input into SQL queries.',
-                  { param, payload, url: testUrl }
-                )
+              const result = this.createResult(
+                'Error-based SQL Injection',
+                this.category,
+                'critical',
+                true,
+                `SQL injection vulnerability detected via error message`,
+                [
+                  `URL: ${testUrl}`,
+                  `Payload: ${payload}`,
+                  `Error pattern matched: ${pattern}`,
+                ],
+                'Use parameterized queries (prepared statements) for all database operations. Never concatenate user input into SQL queries.',
+                { param, payload, url: testUrl }
               );
+              result.url = testUrl;
+              result.vulnerableParameter = param;
+              result.remediationSteps = [
+                `Replace string concatenation with parameterized queries for the '${param}' parameter`,
+                'Use prepared statements or ORM query builders that automatically handle escaping',
+                'Implement input validation to reject special SQL characters if not using parameterized queries',
+                'Apply the principle of least privilege to database user accounts',
+                'Enable database error logging but avoid exposing detailed errors to users'
+              ];
+              result.codeExample = `// UNSAFE - Vulnerable to SQL injection
+const query = "SELECT * FROM users WHERE id = '" + req.query.${param} + "'";
+db.query(query);
+
+// SAFE - Using parameterized queries
+// Node.js with mysql2
+const query = "SELECT * FROM users WHERE id = ?";
+db.query(query, [req.query.${param}]);
+
+// SAFE - Using Sequelize ORM
+const user = await User.findOne({
+  where: { id: req.query.${param} }
+});
+
+// SAFE - Using Prisma
+const user = await prisma.user.findUnique({
+  where: { id: req.query.${param} }
+});`;
+              results.push(result);
               return results; // Found vulnerability, stop testing
             }
           }

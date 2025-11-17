@@ -14,6 +14,13 @@ export interface TestResult {
   timestamp: string;
   duration: number;
   details?: Record<string, any>;
+  // Enhanced details for better reporting
+  url?: string;  // Exact URL where the issue was found
+  vulnerableParameter?: string;  // The specific parameter/field that's vulnerable
+  remediationSteps?: string[];  // Step-by-step fix instructions
+  codeExample?: string;  // Code example for fix
+  aiSuggested?: boolean;  // Whether this test was suggested by AI
+  aiReasoning?: string;  // Why AI suggested this test
 }
 
 export interface TestReport {
